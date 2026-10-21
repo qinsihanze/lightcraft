@@ -220,6 +220,7 @@ pub(crate) fn trailing_masked_columns(d: &[u16], w: usize, bits: u32) -> usize {
     aw & !1
 }
 
+/// Decode a Nikon NEF or NRW raw image file, supporting uncompressed, Huffman-compressed, and packed variants.
 pub(crate) fn decode(bytes: &[u8], mode: Mode) -> Result<RawImage> {
     let tiff = Tiff::parse(bytes)?;
     let ifd0 = &tiff.ifds[0];
@@ -228,6 +229,14 @@ pub(crate) fn decode(bytes: &[u8], mode: Mode) -> Result<RawImage> {
     let (w, h) = (info.width as usize, info.height as usize);
     let bits = info.bits() as u32;
     let make = ifd0.string(t::MAKE).unwrap_or_default();
+    let model = ifd0.string(t::MODEL).unwrap_or_default();
+
+    // Early Coolpix interlaced CMYG sensors (5700, 8400, 8800) cannot decode as Bayer RGGB;
+    // gracefully fall back to the embedded full-resolution preview.
+    if model.contains("5700") || model.contains("8400") || model.contains("8800") {
+        return Err(RawError::Unsupported("Nikon Coolpix interlaced CMYG sensor (supported via embedded preview)".into()));
+    }
+
     let mn =
         tiff.exif().and_then(|e| e.get(t::MAKER_NOTE)).and_then(|e| makernote::parse_makernote(bytes, e.offset, e.count() as u64, tiff.order, &make));
     // the header probe reads only the rows the masked-column test needs
@@ -235,8 +244,14 @@ pub(crate) fn decode(bytes: &[u8], mode: Mode) -> Result<RawImage> {
         Mode::Full => h,
         Mode::Header => h.min(MASK_ROWS),
     };
+    let has_table = mn.as_ref().and_then(|m| m.ifd.bytes(LINEARIZATION_TABLE)).is_some();
     let data = if info.compression == t::compression::NIKON {
-        compressed(bytes, &info, mn.as_ref(), rows)?
+        if has_table {
+            compressed(bytes, &info, mn.as_ref(), rows)?
+        } else {
+            // Some Z bodies (e.g. Z 6II uncompressed) write compression 34713 without a linearization table.
+            uncompressed(bytes, &info, tiff.order, mn.as_ref(), rows)?
+        }
     } else {
         uncompressed(bytes, &info, tiff.order, mn.as_ref(), rows)?
     };
@@ -264,7 +279,6 @@ pub(crate) fn decode(bytes: &[u8], mode: Mode) -> Result<RawImage> {
         (Some([2, 2]), Some(p)) if p.len() == 4 && p.iter().all(|&c| c <= 2) => Cfa { width: 2, height: 2, pattern: p.to_vec() },
         _ => Cfa::bayer_static("RGGB"),
     };
-    let model = ifd0.string(t::MODEL).unwrap_or_default();
     let body = measured_body(&model, w, h, bits);
     let active_w = trailing_masked_columns(samples, w, bits);
     // the white level is measured from the whole image (or known for a measured body); the probe (no samples in its
@@ -314,10 +328,17 @@ pub(crate) fn decode(bytes: &[u8], mode: Mode) -> Result<RawImage> {
     Ok(img)
 }
 
-/// Uncompressed strips: 16-bit words or 12-bit packed, told apart by the strip size. Packed 12-bit data is an MSB-first
-/// byte stream, except in files with an NRW data block (Coolpix), where it is MSB-first inside little-endian 32-bit
-/// words (the rows are whole words). Reads the first `rows` rows (the strips that hold them) of the `info.height`.
+/// Uncompressed strips: 16-bit words, 12-bit packed or 14-bit packed, told apart by the strip size.
+/// Packed data is an MSB-first byte stream, except in files with an NRW data block (Coolpix),
+/// where 12-bit is MSB-first inside little-endian 32-bit words. Reads the first `rows` rows.
 fn uncompressed(bytes: &[u8], info: &ImageInfo, order: ByteOrder, mn: Option<&makernote::MakerNote>, rows: usize) -> Result<RawData> {
+    let starts_with = |magic: &[u8]| {
+        let start = info.chunks(bytes.len() as u64).first().and_then(|c| usize::try_from(c.offset).ok());
+        start.and_then(|o| bytes.get(o..o.checked_add(magic.len())?)) == Some(magic)
+    };
+    if starts_with(&JPEG_XS_START) {
+        return Err(RawError::Unsupported(HIGH_EFFICIENCY.into()));
+    }
     let (w, h) = (info.width as usize, info.height as usize);
     let bits = info.bits() as u32;
     let row_samples = w * info.samples_per_pixel as usize;
@@ -328,17 +349,21 @@ fn uncompressed(bytes: &[u8], info: &ImageInfo, order: ByteOrder, mn: Option<&ma
         Packing::Word16
     } else if bits == 12 && bytes_per_row * 8 >= row_samples * 12 && bytes_per_row * 8 < row_samples * 13 {
         if nrw_data(mn).is_some() && bytes_per_row.is_multiple_of(4) { Packing::Words32Msb } else { Packing::Msb }
-    } else if info.compression == 1 && bits != 8 && bits != 16 {
+    } else if bits == 14 && bytes_per_row * 8 >= row_samples * 14 && bytes_per_row * 8 < row_samples * 16 {
+        Packing::Msb
+    } else if (info.compression == 1 || info.compression == t::compression::NIKON) && bits != 8 && bits != 16 {
         return Err(RawError::Unsupported(format!("NEF uncompressed packing ({bytes_per_row} bytes per {row_samples}-sample row)")));
     } else {
         Packing::Msb
     };
+    let mut info = info.clone();
+    info.compression = lightcraft_tiff::tags::compression::NONE;
     if rows >= h {
-        return read_image(bytes, info, order, packing);
+        return read_image(bytes, &info, order, packing);
     }
     // the whole image's limits apply either way; then only the strips holding the first `rows` rows are unpacked
-    check_image(bytes, info)?;
-    let top = ImageInfo { height: rows as u32, ..info.clone() };
+    check_image(bytes, &info)?;
+    let top = ImageInfo { height: rows as u32, ..info };
     read_image(bytes, &top, order, packing)
 }
 
@@ -352,7 +377,6 @@ fn compressed(bytes: &[u8], info: &ImageInfo, mn: Option<&makernote::MakerNote>,
     if starts_with(&JPEG_XS_START) {
         return Err(RawError::Unsupported(HIGH_EFFICIENCY.into()));
     }
-    // (some Z bodies label uncompressed, row-padded data 34713 without a table: not handled here yet)
     let table = mn
         .and_then(|m| Some((m.ifd.bytes(LINEARIZATION_TABLE)?, m.order)))
         .ok_or_else(|| RawError::Unsupported("Nikon compressed NEF without a linearization table (maker note 0x96)".into()))?;
@@ -796,11 +820,39 @@ mod tests {
         assert_eq!(decode(Some(both)).black.values, vec![100.0, 101.0, 102.0, 103.0]);
     }
 
+    /// 14-bit MSB-packed uncompressed NEF under compression tag 34713 (Z 6II / Z 7 / D6).
     #[test]
-    fn compressed_without_table_is_unsupported() {
-        let bytes = nef(34713, 14, vec![vec![0; 64]], 8, 8, 8);
-        let Err(RawError::Unsupported(why)) = crate::decode(&bytes) else { panic!("expected unsupported") };
-        assert!(why.contains("linearization table"), "{why}");
+    fn uncompressed_14_bit_packed_under_compression_34713() {
+        let (w, h) = (8usize, 4usize);
+        let px: Vec<u16> = (0..w * h).map(|i| (400 + i * 373 % 15000) as u16).collect();
+        // Pack 14-bit MSB
+        let mut packed = Vec::new();
+        let mut acc = 0u64;
+        let mut nacc = 0;
+        for &sample in &px {
+            acc = (acc << 14) | (sample as u64 & 0x3fff);
+            nacc += 14;
+            while nacc >= 8 {
+                packed.push((acc >> (nacc - 8)) as u8);
+                nacc -= 8;
+            }
+        }
+        if nacc > 0 {
+            packed.push((acc << (8 - nacc)) as u8);
+        }
+        let bytes = nef(34713, 14, vec![packed], w as u32, h as u32, h as u32);
+        let decoded = crate::decode(&bytes).expect("decodes 14-bit packed NEF");
+        assert_eq!(decoded.data, RawData::U16(px));
+    }
+
+    /// Coolpix 5700 / 8400 / 8800 early interlaced CMYG CCD raws gracefully report unsupported to open via embedded preview.
+    #[test]
+    fn coolpix_interlaced_cmyg_falls_back_to_preview() {
+        let (w, h) = (16usize, 6usize);
+        let words: Vec<u8> = vec![0; w * h * 2];
+        let bytes = nef_model_in(ByteOrder::Big, "COOLPIX 5700", 1, 12, vec![words], w as u32, h as u32, h as u32, None);
+        let res = crate::decode(&bytes);
+        assert!(matches!(res, Err(RawError::Unsupported(why)) if why.contains("Coolpix interlaced")));
     }
 
     /// Issue #193: a High Efficiency NEF (Z f, Z 8: compression 34713, no `0x0096` table, a JPEG XS codestream) is
@@ -815,8 +867,8 @@ mod tests {
             assert_eq!(why, HIGH_EFFICIENCY);
             assert!(why.starts_with("Nikon High Efficiency NEF ("), "{why}");
         }
-        // a strip too short to hold the markers is still the missing-table case, not a panic
+        // a strip too short to hold the markers reports unsupported packing or missing table, never panics
         let short = nef(34713, 14, vec![vec![0xff, 0x10]], 1, 1, 1);
-        assert!(matches!(crate::decode(&short), Err(RawError::Unsupported(w)) if w.contains("linearization table")));
+        assert!(matches!(crate::decode(&short), Err(RawError::Unsupported(_))));
     }
 }

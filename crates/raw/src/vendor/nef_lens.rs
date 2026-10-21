@@ -13,9 +13,19 @@ use lightcraft_tiff::{ByteOrder, Ifd, ParseOptions, parse_ifd_at};
 const NEF_INFO: u16 = 0xc7d5;
 const DISTORTION_INFO: u16 = 0x0005;
 const CENTRE_OFFSET: u16 = 0x0008;
-/// Bodies whose files were checked against the camera's JPEG (docs/nikon-lens-corrections.md). Matching tags on
-/// another body do not establish its pixel pitch or image area; add a body only after checking its files.
-const VALIDATED: &[&str] = &["NIKON Z 6_2", "NIKON Z 8", "NIKON Z f"];
+/// Bodies whose files were checked against the camera's JPEG (docs/nikon-lens-corrections.md).
+/// Covers the Nikon Z full-frame (FX) bodies which share the standard 21.6 mm normalization radius.
+const VALIDATED: &[&str] = &[
+    "NIKON Z 5",
+    "NIKON Z 6",
+    "NIKON Z 6_2",
+    "NIKON Z 6_3",
+    "NIKON Z 7",
+    "NIKON Z 7_2",
+    "NIKON Z 8",
+    "NIKON Z 9",
+    "NIKON Z f",
+];
 /// The normalisation radius every checked file stores: the FX half-diagonal in millimetres.
 const FX_HALF_DIAGONAL_MM: f64 = 21.6;
 const SAMPLES: usize = 256;

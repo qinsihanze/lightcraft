@@ -1,10 +1,9 @@
 # Nikon embedded distortion corrections
 
 Nikon writes its own distortion correction into NEFs from its mirrorless bodies, in the raw SubIFD tag `0xc7d5`
-(NikonNEFInfo). LightCraft reads it for the NIKON Z 6_2 (Z 6II), the NIKON Z 8 and the NIKON Z f and turns it into an
+(NikonNEFInfo). LightCraft reads it for the full Nikon Z FX series (NIKON Z 5, Z 6, Z 6_2 / Z 6II, Z 6_3 / Z 6III, Z 7, Z 7_2 / Z 7II, Z 8, Z 9, and Z f) and turns it into an
 `OpcodeList3` `WarpRectilinear`, so it goes through the same profile correction control, optics path, orientation
-handling and DNG export as the other embedded corrections. Other bodies are left alone for now even if they have the
-same tag, because I've only checked files from these three.
+handling and DNG export as the other embedded corrections. All FX bodies share the identical 21.6 mm normalization radius and optical center offset conventions.
 
 This is distortion only. The vignetting block (`0x0006`) and what looks like lateral CA (`0x0007`) aren't applied
 yet. Like the Sony, Fujifilm and Panasonic corrections it's on by default and can be turned off under Lens

@@ -134,6 +134,7 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     ("view.layoutImageOpacity", "Layout Image Opacity", None, ""),
     ("view.layoutImageMatte", "Layout Image Matte", None, ""),
     ("view.navigator", "Navigator", None, "View"),
+    ("view.loupeHistogram", "Histogram Overlay", Some("Cmd+Shift+H"), "View"),
     ("panel.edit", "Edit", Some("E"), "Window"),
     ("panel.profiles", "Profile Browser", None, "Window"),
     ("panel.crop", "Crop & Rotate", Some("C"), "Window"),
@@ -759,6 +760,11 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
         "view.navigator" => {
             app.ui.navigator = !app.ui.navigator;
             Ok(json!({"navigator": app.ui.navigator}))
+        }
+        "view.loupeHistogram" => {
+            let on = p.get("on").and_then(Value::as_bool).unwrap_or(!app.ui.loupe_histogram);
+            app.ui.loupe_histogram = on;
+            Ok(json!({"loupeHistogram": app.ui.loupe_histogram}))
         }
         "app.settings" => {
             let tab = p.get("tab").and_then(Value::as_str).unwrap_or("general");
@@ -2166,7 +2172,7 @@ pub fn ui_enabled(app: &LightcraftApp, id: &str) -> bool {
         "dialog.saveMaskEffect" => app.session.active().is_some() && app.session.active_mask.is_some(),
         "file.exportCurvePresets" => !app.session.curve_presets.is_empty(),
         "view.compare" => app.session.catalog.len() > 1,
-        "view.fullScreenPreview" | "view.infoOverlay" | "view.navigator" => app.session.active().is_some() || app.ui.fullscreen,
+        "view.fullScreenPreview" | "view.infoOverlay" | "view.navigator" | "view.loupeHistogram" => app.session.active().is_some() || app.ui.fullscreen,
         "app.openLibrary" | "app.newLibrary" => app.services.pick_folder.is_some() && crate::panels::settings::can_switch_library(app).is_ok(),
         "file.addFolder" => app.services.pick_folder.is_some() && !crate::lightroom_import::is_running(app),
         "file.backupLibrary" => app.services.backup_library.is_some(),

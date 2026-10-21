@@ -242,6 +242,7 @@ pub(crate) fn lossy_jpeg(src: &[u8], cpp: usize) -> Result<(Vec<u8>, usize, usiz
     Ok((px, w, h, c))
 }
 
+/// Unpack a chunk of raw sensor samples (float or integer) with the requested predictor, packing and byte order.
 #[allow(clippy::too_many_arguments)]
 fn unpack_chunk(
     src: &[u8],
@@ -268,10 +269,11 @@ fn unpack_chunk(
     if float {
         let bp = bits.div_ceil(8) as usize;
         let row_bytes = row_n * bp;
+        let stride = if ch > 0 && src.len() >= row_bytes * ch { (src.len() / ch).max(row_bytes) } else { row_bytes };
         let mut out = vec![0f32; row_n * ch];
         let mut rowbuf = vec![0u8; row_bytes];
         for y in 0..ch {
-            let s = src.get(y * row_bytes..).unwrap_or(&[]);
+            let s = src.get(y * stride..).unwrap_or(&[]);
             let len = s.len().min(row_bytes);
             rowbuf[..len].copy_from_slice(&s[..len]);
             rowbuf[len..].fill(0);
@@ -309,8 +311,9 @@ fn unpack_chunk(
         (_, Packing::Lsb) => ((row_n * bits as usize).div_ceil(8), 3),
         (_, Packing::Words32Msb) => ((row_n * bits as usize).div_ceil(32) * 4, 4),
     };
+    let stride = if ch > 0 && src.len() >= row_bytes * ch { (src.len() / ch).max(row_bytes) } else { row_bytes };
     for y in 0..ch {
-        let s = src.get(y * row_bytes..).unwrap_or(&[]);
+        let s = src.get(y * stride..).unwrap_or(&[]);
         let s = &s[..s.len().min(row_bytes)];
         let row = &mut out[y * row_n..(y + 1) * row_n];
         match kind {

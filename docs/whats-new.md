@@ -1,5 +1,20 @@
 # What's new in LightCraft
 
+## 2026-10-21
+
+### Floating Histogram overlay in Loupe preview
+- The histogram can now be displayed as a draggable floating HUD card directly inside the main photo preview (Loupe / Detail view).
+- Toggle it anytime via View ▸ Histogram Overlay or the shortcut `Cmd+Shift+H` (`Ctrl+Shift+H` on Windows/Linux).
+- Supports live multi-channel RGB and luminance curves with real-time updates during interactive slider dragging, HDR stop indicators, shadow and highlight clipping warning toggles, and EXIF shooting metadata.
+- Fully movable: click and drag the header bar to place the overlay anywhere over the canvas.
+
+### Full-series Nikon camera & raw format support
+- Support for 14-bit packed uncompressed NEF files (TIFF compression 34713 without quantization tables, e.g. Nikon Z 6II, Z 7, D6).
+- Row stride and padding handling for padded raw strips, eliminating row drift and slanted rendering.
+- Early Coolpix interlaced CMYG CCD models (COOLPIX 5700, 8400, 8800) cleanly fall back to high-resolution embedded JPEG previews, avoiding garbled split-frame renders.
+- Verified same-sensor spectral matrix mappings across Nikon DSLR and Z mirrorless families: 6.1 MP CCD (D70s/D50/D40/D100 to D70), 10.2 MP CCD (D80/D40X/D60/D3000 to D200), 12.1 MP FX (D3/D3S to D700), 16.2 MP DX (Coolpix A to D5100), 24.2 MP DX (D5500/D5600/D7100/D7200 to D5300; D3400/D3500 to D3300), 36.3 MP FX (D810A to D810), 45.7 MP BSI FX (Z 7/Z 7II/Z 8/Z 9 to D850), and 24.5 MP BSI FX (Z 6/Z 6II to Z f).
+- Nikon embedded lens distortion correction (`NikonNEFInfo` SubIFD tag `0xc7d5`) validated and enabled across the entire Nikon Z FX series (Z 5, Z 6, Z 6II, Z 6III, Z 7, Z 7II, Z 8, Z 9, Z f).
+
 ## 2026-10-14
 
 ### Model downloads time out on a name that doesn't resolve

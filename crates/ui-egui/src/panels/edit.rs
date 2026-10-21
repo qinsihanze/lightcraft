@@ -563,8 +563,8 @@ fn section(
 
 // ------------------------------------------------------------------------------ histogram
 
-/// The current photo's existing preview histogram, shared by Histogram and Tone Curve.
-fn preview_histogram(app: &LightcraftApp, id: PhotoId) -> Option<lightcraft_raster::Histogram> {
+/// The current photo's existing preview histogram, shared by Histogram, Tone Curve, and Floating Histogram.
+pub(crate) fn preview_histogram(app: &LightcraftApp, id: PhotoId) -> Option<lightcraft_raster::Histogram> {
     app.renderer
         .textures
         .get(&Slot::Main)
@@ -577,7 +577,7 @@ fn preview_histogram(app: &LightcraftApp, id: PhotoId) -> Option<lightcraft_rast
 /// (a drag's drafts, a cached thumbnail or stand-in), and showing those would swap the panel to
 /// the SDR layout and back while a slider moves. Every render with HDR bins replaces the one kept for the photo, so
 /// the histogram still follows the edit live; an SDR edit shows what it gets.
-fn steady_hdr_histogram(ctx: &egui::Context, id: PhotoId, hdr_edit: bool, hist: Option<Histogram>) -> Option<Histogram> {
+pub(crate) fn steady_hdr_histogram(ctx: &egui::Context, id: PhotoId, hdr_edit: bool, hist: Option<Histogram>) -> Option<Histogram> {
     let key = egui::Id::new(("hdrHistogram", id));
     match hist {
         Some(h) if h.hdr.is_some() => {

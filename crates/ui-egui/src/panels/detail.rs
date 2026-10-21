@@ -433,6 +433,7 @@ fn draw_window(p: &egui::Painter, app: &LightcraftApp, c: &WindowCtx, v: &Window
     p.image(tex.tex.id(), dst, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
 }
 
+/// Renders the main Loupe / Detail view canvas, including active image render, navigator, overlays, and floating histogram HUD.
 pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let full = ui.max_rect();
@@ -896,6 +897,9 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
     }
     if let Some(why) = photo.preview_only.as_deref().filter(|_| !fullscreen) {
         preview_only_pill(ui, canvas, why);
+    }
+    if app.ui.loupe_histogram && !fullscreen {
+        super::floating_histogram::show(app, ui, canvas, id);
     }
     resp.context_menu(|ui| {
         crate::widgets::menu_button(ui, crate::i18n::tr("Zoom"), |ui| {

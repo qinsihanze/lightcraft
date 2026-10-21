@@ -2409,3 +2409,37 @@ fn the_histogram_clipping_buttons_stay_clear_of_the_hovered_scroll_bar() {
     // and the shadow one keeps the same inset from its edge
     assert!(((low.left() - hist.left()) - (hist.right() - high.right())).abs() < 0.5, "{low:?} {high:?} in {hist:?}");
 }
+
+/// Tests that the floating histogram overlay in the loupe preview displays correctly,
+/// registers its interactive widgets (close, shadow/highlight clipping), and toggles via menu command.
+#[test]
+fn loupe_floating_histogram_toggles_and_interacts() {
+    let mut h = demo([1400.0, 900.0], json!({"view": "detail", "loupeHistogram": true}));
+    assert!(h.app.ui.loupe_histogram);
+
+    // Verify widgets are registered on canvas
+    let _panel = widget(&h, "loupe:floatingHistogram");
+    let _close = widget(&h, "loupe:floatingHistogram:close");
+    let _shadows = widget(&h, "loupe:floatingHistogram:shadows");
+    let _highlights = widget(&h, "loupe:floatingHistogram:highlights");
+
+    // Click shadow clipping button: toggles clipping warnings
+    let initial_clipping = h.app.ui.show_clipping;
+    let r = h.request("ui.clickWidget", json!({"id": "loupe:floatingHistogram:shadows"}), T);
+    assert_eq!(r["ok"], true, "{r}");
+    h.step();
+    assert_eq!(h.app.ui.show_clipping, !initial_clipping);
+
+    // Click close button: closes the floating histogram overlay
+    let r = h.request("ui.clickWidget", json!({"id": "loupe:floatingHistogram:close"}), T);
+    assert_eq!(r["ok"], true, "{r}");
+    h.step();
+    assert!(!h.app.ui.loupe_histogram);
+
+    // Invoke view.loupeHistogram command to restore the floating overlay
+    let r = h.app.run("view.loupeHistogram", json!({}));
+    assert!(r.is_ok(), "{r:?}");
+    h.step();
+    assert!(h.app.ui.loupe_histogram);
+}
+

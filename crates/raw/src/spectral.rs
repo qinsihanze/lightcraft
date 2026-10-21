@@ -44,7 +44,10 @@ impl Camera {
 /// `(make, model as sold, table model)`: bodies sharing a table camera's sensor that rawtoaces-data's alias list
 /// doesn't name, kept here because the table is generated. Fujifilm's 26.1 MP X-Trans CMOS 4 bodies use the X-T3's
 /// sensor (X-T30 issue: a black-and-white Acros camera JPEG gives no colour to fit, and without matrices the photo
-/// opened in the muted neutral fallback).
+/// opened in the muted neutral fallback). Nikon bodies share sensor architectures across generations and product
+/// tiers: D80/D40X/D60/D3000 with D200 (10.2 MP CCD), D70s/D50/D40/D100 with D70 (6.1 MP CCD),
+/// D3/D3S with D700 (12.1 MP FX), Coolpix A with D5100 (16.2 MP DX), D5500/D5600/D7100/D7200 with D5300,
+/// D3400/D3500 with D3300, Z 7/Z 7II/Z 8/Z 9 with D850 (45.7 MP BSI FX), Z 6/Z 6II with Z f (24.5 MP BSI FX).
 const SAME_SENSOR: &[(&str, &str, &str)] = &[
     ("Fujifilm", "X-T30", "X-T3"),
     ("Fujifilm", "X-T30 II", "X-T3"),
@@ -52,6 +55,40 @@ const SAME_SENSOR: &[(&str, &str, &str)] = &[
     ("Fujifilm", "X100V", "X-T3"),
     ("Fujifilm", "X-S10", "X-T3"),
     ("Fujifilm", "X-E4", "X-T3"),
+    // Nikon DSLR and mirrorless verified same-sensor mappings:
+    // 1. 6.1 MP DX CCD (Sony ICX413AQ / ICX453AQ family) -> D70
+    ("Nikon", "D70s", "D70"),
+    ("Nikon", "D50", "D70"),
+    ("Nikon", "D40", "D70"),
+    ("Nikon", "D100", "D70"),
+    // 2. 10.2 MP DX CCD (Sony ICX483AQA / ICX493AQA family) -> D200
+    ("Nikon", "D80", "D200"),
+    ("Nikon", "D40X", "D200"),
+    ("Nikon", "D60", "D200"),
+    ("Nikon", "D3000", "D200"),
+    // 3. 12.1 MP FX CMOS (Nikon NC81338L family) -> D700
+    ("Nikon", "D3", "D700"),
+    ("Nikon", "D3S", "D700"),
+    // 4. 16.2 MP DX CMOS (Sony IMX071 sans OLPF) -> D5100
+    ("Nikon", "Coolpix A", "D5100"),
+    // 5. 24.2 MP DX CMOS without OLPF (Sony IMX193 family) -> D5300 / D3300
+    ("Nikon", "D5500", "D5300"),
+    ("Nikon", "D5600", "D5300"),
+    ("Nikon", "D7100", "D5300"),
+    ("Nikon", "D7200", "D5300"),
+    ("Nikon", "D3400", "D3300"),
+    ("Nikon", "D3500", "D3300"),
+    // 6. 36.3 MP FX CMOS (Sony IMX094 astrophotography variant) -> D810 (D800 is already in ALIASES)
+    ("Nikon", "D810A", "D810"),
+    // 7. 45.7 MP BSI FX CMOS (Sony IMX309 / IMX609 base ISO 64 family) -> D850
+    ("Nikon", "Z 7", "D850"),
+    ("Nikon", "Z 7II", "D850"),
+    ("Nikon", "Z 7_2", "D850"),
+    ("Nikon", "Z 8", "D850"),
+    ("Nikon", "Z 9", "D850"),
+    // 8. 24.5 MP BSI FX CMOS (Sony IMX410 family) -> Z f (Z 6_2 is already in ALIASES)
+    ("Nikon", "Z 6", "Z f"),
+    ("Nikon", "Z 6II", "Z f"),
 ];
 
 /// Model names compared without case, the brand, a leading `EOS` or a trailing `DIGITAL`
@@ -267,5 +304,43 @@ mod tests {
         let before = color.clone();
         assert!(!c.fill(&mut color));
         assert_eq!(color, before);
+    }
+
+    /// Tests that all verified Nikon same-sensor alias mappings correctly resolve to their respective base models in the spectral table.
+    #[test]
+    fn nikon_same_sensor_mappings_resolve_accurately() {
+        // 1. 6.1 MP CCD
+        assert_eq!(find(Some("Nikon"), "D70s").map(|c| c.model), Some("D70"));
+        assert_eq!(find(Some("Nikon"), "D50").map(|c| c.model), Some("D70"));
+        assert_eq!(find(Some("Nikon"), "D40").map(|c| c.model), Some("D70"));
+        assert_eq!(find(Some("Nikon"), "D100").map(|c| c.model), Some("D70"));
+        // 2. 10.2 MP CCD
+        assert_eq!(find(Some("Nikon"), "D80").map(|c| c.model), Some("D200"));
+        assert_eq!(find(Some("Nikon"), "D40X").map(|c| c.model), Some("D200"));
+        assert_eq!(find(Some("Nikon"), "D60").map(|c| c.model), Some("D200"));
+        assert_eq!(find(Some("Nikon"), "D3000").map(|c| c.model), Some("D200"));
+        // 3. 12.1 MP FX
+        assert_eq!(find(Some("Nikon"), "D3").map(|c| c.model), Some("D700"));
+        assert_eq!(find(Some("Nikon"), "D3S").map(|c| c.model), Some("D700"));
+        // 4. 16.2 MP DX
+        assert_eq!(find(Some("Nikon"), "Coolpix A").map(|c| c.model), Some("D5100"));
+        // 5. 24.2 MP DX
+        assert_eq!(find(Some("Nikon"), "D5500").map(|c| c.model), Some("D5300"));
+        assert_eq!(find(Some("Nikon"), "D5600").map(|c| c.model), Some("D5300"));
+        assert_eq!(find(Some("Nikon"), "D7100").map(|c| c.model), Some("D5300"));
+        assert_eq!(find(Some("Nikon"), "D7200").map(|c| c.model), Some("D5300"));
+        assert_eq!(find(Some("Nikon"), "D3400").map(|c| c.model), Some("D3300"));
+        assert_eq!(find(Some("Nikon"), "D3500").map(|c| c.model), Some("D3300"));
+        // 6. 36.3 MP FX
+        assert_eq!(find(Some("Nikon"), "D810A").map(|c| c.model), Some("D810"));
+        // 7. 45.7 MP BSI FX
+        assert_eq!(find(Some("Nikon"), "Z 7").map(|c| c.model), Some("D850"));
+        assert_eq!(find(Some("Nikon"), "Z 7II").map(|c| c.model), Some("D850"));
+        assert_eq!(find(Some("Nikon"), "Z 7_2").map(|c| c.model), Some("D850"));
+        assert_eq!(find(Some("Nikon"), "Z 8").map(|c| c.model), Some("D850"));
+        assert_eq!(find(Some("Nikon"), "Z 9").map(|c| c.model), Some("D850"));
+        // 8. 24.5 MP BSI FX
+        assert_eq!(find(Some("Nikon"), "Z 6").map(|c| c.model), Some("Z f"));
+        assert_eq!(find(Some("Nikon"), "Z 6II").map(|c| c.model), Some("Z f"));
     }
 }

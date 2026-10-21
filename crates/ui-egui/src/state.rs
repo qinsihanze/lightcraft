@@ -886,6 +886,11 @@ pub struct UiState {
     pub layout_image: LayoutImage,
     /// Navigator mini map in the loupe while zoomed in.
     pub navigator: bool,
+    /// Floating histogram overlay on the loupe photo preview canvas.
+    pub loupe_histogram: bool,
+    /// Custom position (x, y) for the floating histogram overlay.
+    #[serde(skip)]
+    pub loupe_histogram_pos: Option<(f32, f32)>,
     /// App preferences (Settings dialog).
     pub settings: AppSettings,
     /// Window full screen requested (⇧⌘F); the host applies it (`None` = no change pending).
@@ -1375,6 +1380,8 @@ impl Default for UiState {
             info_overlay: InfoOverlay::Off,
             layout_image: LayoutImage::default(),
             navigator: true,
+            loupe_histogram: false,
+            loupe_histogram_pos: None,
             settings: AppSettings::default(),
             window_fullscreen: None,
             filter_bar: false,
