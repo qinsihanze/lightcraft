@@ -13,7 +13,7 @@
 - Row stride and padding handling for padded raw strips, eliminating row drift and slanted rendering.
 - Early Coolpix interlaced CMYG CCD models (COOLPIX 5700, 8400, 8800) cleanly fall back to high-resolution embedded JPEG previews, avoiding garbled split-frame renders.
 - Verified same-sensor spectral matrix mappings across Nikon DSLR and Z mirrorless families: 6.1 MP CCD (D70s/D50/D40/D100 to D70), 10.2 MP CCD (D80/D40X/D60/D3000 to D200), 12.1 MP FX (D3/D3S to D700), 16.2 MP DX (Coolpix A to D5100), 24.2 MP DX (D5500/D5600/D7100/D7200 to D5300; D3400/D3500 to D3300), 36.3 MP FX (D810A to D810), 45.7 MP BSI FX (Z 7/Z 7II/Z 8/Z 9 to D850), and 24.5 MP BSI FX (Z 6/Z 6II to Z f).
-- Nikon embedded lens distortion correction (`NikonNEFInfo` SubIFD tag `0xc7d5`) validated and enabled across the entire Nikon Z FX series (Z 5, Z 6, Z 6II, Z 6III, Z 7, Z 7II, Z 8, Z 9, Z f).
+- Nikon embedded lens distortion correction (`NikonNEFInfo` SubIFD tag `0xc7d5`) validated and active on Nikon Z bodies (Z 6II, Z 8, Z f).
 
 ## 2026-10-14
 

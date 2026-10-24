@@ -4,9 +4,9 @@
 //! with live multi-channel RGB + luminance curves, clipping warning toggles, HDR indicators,
 //! and key exposure EXIF metrics.
 
-use egui::{Align2, Color32, Mesh, Pos2, Rect, Sense, Stroke, StrokeKind, Vertex, pos2, vec2};
+use egui::epaint::{Mesh, Vertex};
+use egui::{Align2, Color32, Pos2, Rect, Sense, Stroke, StrokeKind, pos2, vec2};
 use lightcraft_catalog::PhotoId;
-use lightcraft_raster::Histogram;
 use serde_json::json;
 
 use crate::LightcraftApp;
@@ -82,10 +82,10 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui, canvas: Rect, id: PhotoI
     let s_active = app.ui.show_clipping;
     p.rect_filled(shadows_rect, 2.0, if s_active { t.pressed } else if s_resp.hovered() { t.hover } else { Color32::from_gray(50) });
     paint(&p, Rect::from_center_size(shadows_rect.center(), vec2(12.0, 12.0)), Icon::ChevronDown, if s_clipped || s_active { t.text } else { t.text_dim });
-    s_resp.on_hover_text(crate::i18n::tr("Shadow clipping warnings"));
     if s_resp.clicked() {
         toggle_clipping = true;
     }
+    s_resp.on_hover_text(crate::i18n::tr("Shadow clipping warnings"));
 
     // Highlight clipping button
     let h_resp = ui.interact(highlights_rect, egui::Id::new("floating-hist-highlights"), Sense::click());
@@ -93,10 +93,10 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui, canvas: Rect, id: PhotoI
     let h_clipped = clipping.is_some_and(|(_, hi)| hi > 0.003);
     p.rect_filled(highlights_rect, 2.0, if s_active { t.pressed } else if h_resp.hovered() { t.hover } else { Color32::from_gray(50) });
     paint(&p, Rect::from_center_size(highlights_rect.center(), vec2(12.0, 12.0)), Icon::ChevronDown, if h_clipped || s_active { t.text } else { t.text_dim });
-    h_resp.on_hover_text(crate::i18n::tr("Highlight clipping warnings"));
     if h_resp.clicked() {
         toggle_clipping = true;
     }
+    h_resp.on_hover_text(crate::i18n::tr("Highlight clipping warnings"));
 
     // Close button (×)
     let close_resp = ui.interact(close_rect, egui::Id::new("floating-hist-close"), Sense::click());
@@ -106,10 +106,10 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui, canvas: Rect, id: PhotoI
     let cross_color = if close_resp.hovered() { Color32::WHITE } else { t.text_dim };
     p.line_segment([close_c - vec2(m, m), close_c + vec2(m, m)], Stroke::new(1.2, cross_color));
     p.line_segment([close_c - vec2(m, -m), close_c + vec2(m, -m)], Stroke::new(1.2, cross_color));
-    close_resp.on_hover_text(crate::i18n::tr("Hide histogram overlay"));
     if close_resp.clicked() {
         app.ui.loupe_histogram = false;
     }
+    close_resp.on_hover_text(crate::i18n::tr("Hide histogram overlay"));
 
     if toggle_clipping {
         let _ = app.run("view.clipping", json!({}));

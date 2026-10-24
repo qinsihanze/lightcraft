@@ -14,16 +14,9 @@ const NEF_INFO: u16 = 0xc7d5;
 const DISTORTION_INFO: u16 = 0x0005;
 const CENTRE_OFFSET: u16 = 0x0008;
 /// Bodies whose files were checked against the camera's JPEG (docs/nikon-lens-corrections.md).
-/// Covers the Nikon Z full-frame (FX) bodies which share the standard 21.6 mm normalization radius.
 const VALIDATED: &[&str] = &[
-    "NIKON Z 5",
-    "NIKON Z 6",
     "NIKON Z 6_2",
-    "NIKON Z 6_3",
-    "NIKON Z 7",
-    "NIKON Z 7_2",
     "NIKON Z 8",
-    "NIKON Z 9",
     "NIKON Z f",
 ];
 /// The normalisation radius every checked file stores: the FX half-diagonal in millimetres.

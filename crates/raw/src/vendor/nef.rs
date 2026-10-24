@@ -20,8 +20,8 @@ const WB_RB_LEVELS: u16 = 0x000c;
 const BLACK_LEVEL: u16 = 0x003d;
 const LINEARIZATION_TABLE: u16 = 0x0096;
 const CROP_AREA: u16 = 0x0045;
-/// JPEG XS start of codestream (SOC, `FF10`) followed by its mandatory capabilities marker (CAP, `FF50`).
-const JPEG_XS_START: [u8; 4] = [0xff, 0x10, 0xff, 0x50];
+/// JPEG XS start of codestream (SOC, `FF10`).
+const JPEG_XS_SOC: [u8; 2] = [0xff, 0x10];
 /// Why a High Efficiency NEF shows its embedded preview: the UI shows the part before " (".
 pub(crate) const HIGH_EFFICIENCY: &str =
     "Nikon High Efficiency NEF (HE / HE★, a JPEG XS-based codec with no public specification; shoot RAW Lossless compressed to edit the raw data)";
@@ -336,7 +336,7 @@ fn uncompressed(bytes: &[u8], info: &ImageInfo, order: ByteOrder, mn: Option<&ma
         let start = info.chunks(bytes.len() as u64).first().and_then(|c| usize::try_from(c.offset).ok());
         start.and_then(|o| bytes.get(o..o.checked_add(magic.len())?)) == Some(magic)
     };
-    if starts_with(&JPEG_XS_START) {
+    if starts_with(&JPEG_XS_SOC) {
         return Err(RawError::Unsupported(HIGH_EFFICIENCY.into()));
     }
     let (w, h) = (info.width as usize, info.height as usize);
@@ -374,7 +374,7 @@ fn compressed(bytes: &[u8], info: &ImageInfo, mn: Option<&makernote::MakerNote>,
         let start = info.chunks(bytes.len() as u64).first().and_then(|c| usize::try_from(c.offset).ok());
         start.and_then(|o| bytes.get(o..o.checked_add(magic.len())?)) == Some(magic)
     };
-    if starts_with(&JPEG_XS_START) {
+    if starts_with(&JPEG_XS_SOC) {
         return Err(RawError::Unsupported(HIGH_EFFICIENCY.into()));
     }
     let table = mn
@@ -820,9 +820,9 @@ mod tests {
         assert_eq!(decode(Some(both)).black.values, vec![100.0, 101.0, 102.0, 103.0]);
     }
 
-    /// 14-bit MSB-packed uncompressed NEF under compression tag 34713 (Z 6II / Z 7 / D6).
+    /// 14-bit MSB-packed uncompressed NEF (compression tag 1).
     #[test]
-    fn uncompressed_14_bit_packed_under_compression_34713() {
+    fn uncompressed_14_bit_packed() {
         let (w, h) = (8usize, 4usize);
         let px: Vec<u16> = (0..w * h).map(|i| (400 + i * 373 % 15000) as u16).collect();
         // Pack 14-bit MSB
@@ -840,9 +840,14 @@ mod tests {
         if nacc > 0 {
             packed.push((acc << (8 - nacc)) as u8);
         }
-        let bytes = nef(34713, 14, vec![packed], w as u32, h as u32, h as u32);
+        let bytes = nef(1, 14, vec![packed.clone()], w as u32, h as u32, h as u32);
         let decoded = crate::decode(&bytes).expect("decodes 14-bit packed NEF");
-        assert_eq!(decoded.data, RawData::U16(px));
+        assert_eq!(decoded.data, RawData::U16(px.clone()));
+
+        // Also test uncompressed under Nikon compression tag 34713 (e.g. Z 6II / Z 7 / D6).
+        let bytes_34713 = nef(34713, 14, vec![packed], w as u32, h as u32, h as u32);
+        let decoded_34713 = crate::decode(&bytes_34713).expect("decodes 14-bit packed NEF under compression 34713");
+        assert_eq!(decoded_34713.data, RawData::U16(px));
     }
 
     /// Coolpix 5700 / 8400 / 8800 early interlaced CMYG CCD raws gracefully report unsupported to open via embedded preview.
